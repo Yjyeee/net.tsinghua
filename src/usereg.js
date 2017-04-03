@@ -166,14 +166,16 @@ function parse_pages(info_page, sessions_page, callback) {
       var data = window.document.getElementsByClassName('maintd');
 
       for (var i = ROW_LENGTH; i <= data.length - ROW_LENGTH; i += ROW_LENGTH) {
-        infos.sessions.push({
+        var session = {
           id: data[i].getElementsByTagName('input')[0].value,
           ip: data[i + 1].textContent.trim(),
           // Date only accept ISO format here.
           start_time: new Date(data[i + 2].textContent.trim().replace(' ', 'T') + '+08:00'),
           usage: utils.parse_usage_str(data[i + 3].textContent.trim()),
-          device_name: data[i + 11].textContent.trim()
-        });
+          device_name: utils.parse_platform(data[i + 11].textContent.trim())
+        };
+        infos.sessions.push(session);
+        infos.usage += session.usage;
       };
 
       // Done, return infos.

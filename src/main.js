@@ -111,7 +111,7 @@ function get_menu_template() {
       var label = session.device_name;
 
       if (session.ip == last_session.ip) { // Current session.
-        label += '（本机）';
+        label += '(本机)';
         last_session.id = session.id;  // Update id of the last session.
       }
 
@@ -160,8 +160,8 @@ function get_menu_template() {
 
 function real_time_usage_str() {
   var real_time_usage = total_usage;
-  sessions.forEach(function (session) { real_time_usage += session.usage; });
-  return '本月已用 ' + utils.usage_str(real_time_usage) + '（实时）';
+  // sessions.forEach(function (session) { real_time_usage += session.usage; });
+  return '本月已用 ' + utils.usage_str(real_time_usage) + '(实时)';
 }
 
 function login() {
@@ -226,8 +226,8 @@ function update_status(callback) {
           status = 'ONLINE';
 
           // These infos belong to current account, save it.
-          total_usage = infos.total_usage;
-          balance = infos.balance;
+          // total_usage = infos.total_usage;
+          // balance = infos.balance;
         } else {
           status = 'OTHERS_ACCOUNT_ONLINE';
         }

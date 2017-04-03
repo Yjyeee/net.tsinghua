@@ -58,3 +58,10 @@ exports.balance_str = function balance_str(balance) {
 exports.gb2312_to_utf8 = function gb2312_to_utf8(s) {
   return encoding.convert(s, 'UTF-8', 'GB2312').toString();
 }
+exports.parse_platform = function parse_platform(s) {
+    if (s === 'Mac OS')
+        return 'macOS';
+    if (s === 'IOS-Client')
+        return 'iOS';
+    return s;
+}
