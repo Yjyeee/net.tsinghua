@@ -42,7 +42,7 @@ module.exports = function(grunt) {
     shell: {
       build_win32: {
         command: 'electron-packager . <%= pkg.name %> --platform=win32 ' +
-                 '--arch=ia32 --out=build/ --version=<%= electron_version %> ' +
+                 '--arch=ia32 --out=build/ --electron-version=<%= electron_version %> ' +
                  '--asar=true --ignore="(build|resource/cert.p12)" --icon=resource/icon.ico ' +
                  '--app-version=<%= pkg.version %> --overwrite=true ' +
                  '--version-string.CompanyName="Thomas Lee" ' +
@@ -56,8 +56,9 @@ module.exports = function(grunt) {
       },
       build_darwin: {
         command: 'electron-packager . <%= pkg.name %> --platform=darwin ' +
-                 '--arch=x64 --out=build/ --version=<%= electron_version %> ' +
+                 '--arch=x64 --out=build/ --electron-version=<%= electron_version %> ' +
                  '--ignore="(build|resource/cert.p12)" --icon=resource/icon.icns ' +
+                 '--ignore=node_modules/electron-* --ignore=node_modules/.bin --ignore=.git --ignore=dist' +
                  '--app-version=<%= pkg.version %> --overwrite=true ' +
                  '--sign="Thomas Lee"'
       },

@@ -144,6 +144,12 @@ function get_menu_template() {
       config.auto_manage = !config.auto_manage;
       configure.save(config);
     }},
+    {label: '使用SRUN协议', type: 'checkbox', checked: config.use_srun,
+     click: function () {
+      config.use_srun = !config.use_srun;
+      configure.save(config);
+    }},
+
     {label: '账号设置...', click: account_setting},
 
     // About.
@@ -167,7 +173,7 @@ function real_time_usage_str() {
 function login() {
   console.log('Logging in.');
 
-  net.login(config.username, config.md5_pass, function (err) {
+  net.login(config.use_srun, config.username, config.md5_pass, function (err) {
     if (!err) {
       update_all(function () {
         notify('上线成功',
@@ -180,7 +186,7 @@ function login() {
 function logout() {
   console.log('Logging out.');
 
-  net.logout(function (err) {
+  net.logout(config.use_srun, config.username, function (err) {
     if (!err) {
       update_all(function () {
         notify('下线成功', real_time_usage_str());
@@ -224,14 +230,9 @@ function update_status(callback) {
       } else {
         if (config.username == infos.username) {
           status = 'ONLINE';
-
-          // These infos belong to current account, save it.
-          // total_usage = infos.total_usage;
-          // balance = infos.balance;
         } else {
           status = 'OTHERS_ACCOUNT_ONLINE';
         }
-
         // Got something useful, update infos.
         if (config.auto_manage && last_session.ip != infos.ip &&
             last_session.id) {
