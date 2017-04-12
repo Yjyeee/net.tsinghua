@@ -11,6 +11,7 @@ exports.load = function load() {
   // Default config.
   var config = {
     use_srun: true,
+    auto_launch: true,
     auto_manage: true,
     auto_manage_interval_msec: 30 * 1000,
     info_update_interval_msec: 5 * 60 * 1000,

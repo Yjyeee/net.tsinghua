@@ -13,6 +13,7 @@
     "load-grunt-tasks": "^3.3.0"
   },
   "dependencies": {
+    "auto-launch": "^5.0.1",
     "encoding": "^0.1.11",
     "int64-buffer": "^0.1.9",
     "jsdom": "^6.5.1",

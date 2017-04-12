@@ -10,6 +10,7 @@ var Tray = require('tray');
 
 // 3rd party modules.
 var notifier = require('node-notifier');
+var AutoLaunch = require('auto-launch');
 
 // Local modules.
 var auto_update = require('./auto_update');
@@ -19,21 +20,30 @@ var usereg = require('./usereg');
 var utils = require('./utils');
 
 var config = configure.load();  // Load config before anything else.
-
+var appPath = app.getAppPath();
+if( process.platform === 'darwin' ) {
+    appPath = path.resolve( appPath, '../../..');
+}
+var autoLauncher = new AutoLaunch({name: app.getName(), path: appPath});
+if (config.auto_launch) {
+    autoLauncher.enable();
+} else {
+    autoLauncher.disable();
+}
 // Init auto update.
 if (auto_update.init_updater())
-  return;
+    return;
 
-// Status.
-var status = 'UNKNOWN';
-var STATUS_STR = {
-  UNKNOWN: '未知状态',
-  OFFLINE: '离线',
-  ONLINE: '在线',
-  OTHERS_ACCOUNT_ONLINE: '他人账号在线',
-  ERROR: '网络错误',
-  NO_CONNECTION: '无连接'
-};
+    // Status.
+    var status = 'UNKNOWN';
+    var STATUS_STR = {
+        UNKNOWN: '未知状态',
+        OFFLINE: '离线',
+        ONLINE: '在线',
+        OTHERS_ACCOUNT_ONLINE: '他人账号在线',
+        ERROR: '网络错误',
+        NO_CONNECTION: '无连接'
+    };
 var last_session = {};
 
 // Account info.
@@ -52,307 +62,328 @@ var notify = function (title, message) {};
 var on_notification_clicked = function (callback) {};
 
 if (process.platform == 'darwin') {
-  notify = function (title, message) {
-    notifier.notify({
-      title: title,
-      message: message,
-      wait: true,
-      sender: "com.electron.net.tsinghua"
-    });
-  };
+    notify = function (title, message) {
+        notifier.notify({
+            title: title,
+            message: message,
+            wait: true,
+            sender: "com.electron.net.tsinghua"
+        });
+    };
 
-  on_notification_clicked = function (callback) {
-    notifier.on('click', callback);
-  };
+    on_notification_clicked = function (callback) {
+        notifier.on('click', callback);
+    };
 } else {
-  notify = function (title, message) {
-    appIcon.displayBalloon({
-      title: title,
-      content: message
-    });
-  };
+    notify = function (title, message) {
+        appIcon.displayBalloon({
+            title: title,
+            content: message
+        });
+    };
 
-  on_notification_clicked = function (callback) {
-    appIcon.on('balloon-clicked', callback);
-  };
+    on_notification_clicked = function (callback) {
+        appIcon.on('balloon-clicked', callback);
+    };
 }
 
 
 function get_menu_template() {
-  var template = [];
+    var template = [];
+    // Status.
+    var status_str = STATUS_STR[status];
+    // Show session usage if possible.
+    if ((status == 'ONLINE' || status == 'OTHERS_ACCOUNT_ONLINE') && last_session) {
+        status_str = status_str + ' - ' + utils.usage_str(last_session.usage);
+        action = {label: '下线', click: logout};
+    } else {
+        action = {label: '上线', click: login};
+    }
+    template.push({label: status_str, enabled: false});
+    template.push(action);
+    // Account info.
+    template.push({type: 'separator'});
+    if (!config.username) {
+        template.push({label: '未设置帐号', enabled: false});
+    } else {
+        template.push({label: config.username, click: account_setting});
+        template.push({label: '已用流量：' + utils.usage_str(total_usage),
+            enabled: false});
+        template.push({label: '当前余额：' + utils.balance_str(balance),
+            enabled: false});
+    }
+    // FIXME: Currently it seems there's not menu.aboutToShow.
+    // So time will be valid only when status_update_interval_msec < 60s.
+    template.push({label: '上次更新：' + utils.time_passed_str(last_check),
+        enabled: false});
+    template.push({label: '现在刷新', click: refresh});
 
-  // Status.
-  var status_str = STATUS_STR[status];
-  // Show session usage if possible.
-  if ((status == 'ONLINE' || status == 'OTHERS_ACCOUNT_ONLINE') && last_session)
-    status_str = status_str + ' - ' + utils.usage_str(last_session.usage);
-  template.push({label: status_str, enabled: false});
+    // Sessions.
+    template.push({type: 'separator'});
+    if (sessions.length == 0) {
+        template.push({label: '无设备在线', enabled: false});
+    } else {
+        template.push({label: '当前连接信息', enabled: false});
 
-  // Account info.
-  template.push({type: 'separator'});
-  if (!config.username) {
-    template.push({label: '未设置帐号', enabled: false});
-  } else {
-    template.push({label: config.username, enabled: false});
-    template.push({label: '本月流量：' + utils.usage_str(total_usage),
-                   enabled: false});
-    template.push({label: '当前余额：' + utils.balance_str(balance),
-                   enabled: false});
-  }
+        sessions.forEach(function (session) {
+            var label = session.device_name;
 
-  // Sessions.
-  template.push({type: 'separator'});
-  if (sessions.length == 0) {
-    template.push({label: '无设备在线', enabled: false});
-  } else {
-    template.push({label: '当前在线', enabled: false});
+            if (session.ip == last_session.ip) { // Current session.
+                label += '(本机)';
+                last_session.id = session.id;  // Update id of the last session.
+            }
 
-    sessions.forEach(function (session) {
-      var label = session.device_name;
-
-      if (session.ip == last_session.ip) { // Current session.
-        label += '(本机)';
-        last_session.id = session.id;  // Update id of the last session.
-      }
-
-      template.push({label: label, submenu: [
-        {label: session.ip, enabled: false},
-        {label: utils.time_passed_str(session.start_time) + '上线',
-         enabled: false},
-        {label: '≥ ' + utils.usage_str(session.usage), enabled: false},
-        {label: '下线', click: function () { logout_session(session.id); }}
-      ]});
+            template.push({label: label, submenu: [
+                {label: session.ip, enabled: false},
+                {label: utils.time_passed_str(session.start_time) + '上线',
+                    enabled: false},
+                {label: '≥ ' + utils.usage_str(session.usage), enabled: false},
+                {label: '下线', click: function () { logout_session(session.id); }}
+            ]});
+        });
+    }
+    template.push({type: 'separator'});
+    template.push({
+        label: '设置',
+        submenu: [
+        {
+            label: '自动刷新', type: 'checkbox', checked: config.auto_manage,
+            click: function () {
+                console.log('Auto manage: %s => %s', config.auto_manage, !config.auto_manage);
+                config.auto_manage = !config.auto_manage;
+                configure.save(config);
+            }
+        },
+        {
+            label: '使用SRUN协议', type: 'checkbox', checked: config.use_srun,
+            click: function () {
+                config.use_srun = !config.use_srun;
+                configure.save(config);
+            }
+        },
+        //TODO: auto start
+        {
+            label: '开机启动', type: 'checkbox', checked: config.auto_launch,
+            click: function () {
+                config.auto_launch = !config.auto_launch;
+                configure.save(config);
+                if (config.auto_launch) {
+                    autoLauncher.enable();
+                } else {
+                    autoLauncher.disable();
+                }
+            }
+        },
+        {label: '账号设置...', click: account_setting}]
     });
-  }
-  // FIXME: Currently it seems there's not menu.aboutToShow.
-  // So time will be valid only when status_update_interval_msec < 60s.
-  template.push({label: '上次更新：' + utils.time_passed_str(last_check),
-                 enabled: false});
-
-  return template.concat([
-    // Actions.
-    {type: 'separator'},
-    {label: '上线', click: login},
-    {label: '下线', click: logout},
-    {label: '现在刷新', click: refresh},
-
-    // Config.
-    {type: 'separator'},
-    {label: '自动管理', type: 'checkbox', checked: config.auto_manage,
-     click: function () {
-      console.log('Auto manage: %s => %s', config.auto_manage, !config.auto_manage);
-      config.auto_manage = !config.auto_manage;
-      configure.save(config);
-    }},
-    {label: '使用SRUN协议', type: 'checkbox', checked: config.use_srun,
-     click: function () {
-      config.use_srun = !config.use_srun;
-      configure.save(config);
-    }},
-
-    {label: '账号设置...', click: account_setting},
-
-    // About.
-    {type: 'separator'},
-    {label: '关于 ' + app.getName(), click: function () {
-      shell.openExternal('https://github.com/ThomasLee969/net.tsinghua');
-    }},
-
-    // Quit.
-    {type: 'separator'},
-    {label: '退出', click: function() { app.quit(); }}
-  ]);
+    return template.concat([
+            // About.
+            {type: 'separator'},
+            {
+                label: '关于 ' + app.getName(),
+                click: function () {
+                    shell.openExternal('https://github.com/ThomasLee969/net.tsinghua');
+                }
+            },
+            // Quit.
+            {type: 'separator'},
+            {
+                label: '退出',
+                click: function() {
+                    app.quit();
+                }
+            }
+    ]);
 }
 
 function real_time_usage_str() {
-  var real_time_usage = total_usage;
-  // sessions.forEach(function (session) { real_time_usage += session.usage; });
-  return '本月已用 ' + utils.usage_str(real_time_usage) + '(实时)';
+    var real_time_usage = total_usage;
+    // sessions.forEach(function (session) { real_time_usage += session.usage; });
+    return '本月已用 ' + utils.usage_str(real_time_usage) + '(实时)';
 }
 
 function login() {
-  console.log('Logging in.');
-
-  net.login(config.use_srun, config.username, config.md5_pass, function (err) {
-    if (!err) {
-      update_all(function () {
-        notify('上线成功',
-               sessions.length.toString() + ' 设备在线\n' + real_time_usage_str());
-      });
-    }
-  });
+    console.log('Logging in.');
+    net.login(config.use_srun, config.username, config.md5_pass, function (err) {
+        if (!err) {
+            update_all(function () {
+                notify('上线成功',
+                        sessions.length.toString() + ' 设备在线\n' + real_time_usage_str());
+            });
+        }
+    });
 }
 
 function logout() {
-  console.log('Logging out.');
+    console.log('Logging out.');
 
-  net.logout(config.use_srun, config.username, function (err) {
-    if (!err) {
-      update_all(function () {
-        notify('下线成功', real_time_usage_str());
-      });
-    }
-  });
+    net.logout(config.use_srun, config.username, function (err) {
+        if (!err) {
+            update_all(function () {
+                notify('下线成功', real_time_usage_str());
+            });
+        }
+    });
 }
 
 function logout_session(id) {
-  console.log('Logging out session %s.', id);
+    console.log('Logging out session %s.', id);
 
-  usereg.logout_session(config.username, config.md5_pass, id, function (err) {
-    if (!err)
-      update_all();  // Might be current session, so update status as well.
-  });
+    usereg.logout_session(config.username, config.md5_pass, id, function (err) {
+        if (!err)
+            update_all();  // Might be current session, so update status as well.
+    });
 }
 
 // FIXME: This will close the menu if it is already open.
 function reset_menu() {
-  if (appIcon) {
-    console.log('Reseting menu.');
-    appIcon.setContextMenu(Menu.buildFromTemplate(get_menu_template()));
+    if (appIcon) {
+        console.log('Reseting menu.');
+        appIcon.setContextMenu(Menu.buildFromTemplate(get_menu_template()));
 
-    appIcon.setToolTip(STATUS_STR[status] + ' - ' + real_time_usage_str());
-  }
+        appIcon.setToolTip(STATUS_STR[status] + ' - ' + real_time_usage_str());
+    }
 }
 
 function update_status(callback) {
-  console.log('Updating status.');
+    console.log('Updating status.');
 
-  if (typeof callback === 'undefined') {
-    callback = function (err) {};
-  }
-
-  net.get_status(function (err, infos) {
-    if (err) {
-      status = 'ERROR';
-    } else {
-      if (!infos) {
-        status = 'OFFLINE';
-      } else {
-        if (config.username == infos.username) {
-          status = 'ONLINE';
-        } else {
-          status = 'OTHERS_ACCOUNT_ONLINE';
-        }
-        // Got something useful, update infos.
-        if (config.auto_manage && last_session.ip != infos.ip &&
-            last_session.id) {
-          // Ip changed, log out previous session.
-          console.log('Ip changed, logging out previous session %s',
-                      last_session.id);
-          logout_session(last_session.id);
-        }
-        last_session.ip = infos.ip;
-        last_session.start_time = infos.start_time;
-        last_session.usage = infos.usage;
-      }
+    if (typeof callback === 'undefined') {
+        callback = function (err) {};
     }
-    reset_menu();
-    callback(err);
-  });
+
+    net.get_status(function (err, infos) {
+        if (err) {
+            status = 'ERROR';
+        } else {
+            if (!infos) {
+                status = 'OFFLINE';
+            } else {
+                if (config.username == infos.username) {
+                    status = 'ONLINE';
+                } else {
+                    status = 'OTHERS_ACCOUNT_ONLINE';
+                }
+                // Got something useful, update infos.
+                if (config.auto_manage && last_session.ip != infos.ip &&
+                        last_session.id) {
+                    // Ip changed, log out previous session.
+                    console.log('Ip changed, logging out previous session %s',
+                            last_session.id);
+                    logout_session(last_session.id);
+                }
+                last_session.ip = infos.ip;
+                last_session.start_time = infos.start_time;
+                last_session.usage = infos.usage;
+            }
+        }
+        reset_menu();
+        callback(err);
+    });
 }
 
 function update_infos(callback) {
-  console.log('Updating infos using usereg.');
+    console.log('Updating infos using usereg.');
 
-  if (typeof callback === 'undefined') {
-    callback = function (err) {};
-  }
-
-  usereg.get_infos(config.username, config.md5_pass, function (err, infos) {
-    if (err) {
-      console.error('Failed to update infos using usereg: %s', err);
-    } else {
-      total_usage = infos.usage;
-      balance = infos.balance;
-      sessions = infos.sessions;
-      last_check = new Date();  // Record current time.
-      reset_menu();
+    if (typeof callback === 'undefined') {
+        callback = function (err) {};
     }
-    callback(err);
-  });
+
+    usereg.get_infos(config.username, config.md5_pass, function (err, infos) {
+        if (err) {
+            console.error('Failed to update infos using usereg: %s', err);
+        } else {
+            total_usage = infos.usage;
+            balance = infos.balance;
+            sessions = infos.sessions;
+            last_check = new Date();  // Record current time.
+            reset_menu();
+        }
+        callback(err);
+    });
 }
 
 function update_all(callback) {
-  update_status(function () {
-    update_infos(callback);
-  });
+    update_status(function () {
+        update_infos(callback);
+    });
 }
 
 // Apart from updating data, we need to do some actions when status updated.
 function refresh_status() {
-  update_status(function () {
-    // Try to login if needed.
-    if (status == 'OFFLINE' && config.auto_manage && config.username)
-      login();
-  });
+    update_status(function () {
+        // Try to login if needed.
+        if (status == 'OFFLINE' && config.auto_manage && config.username)
+            login();
+    });
 }
 
 // Updating data is all we need.
 function refresh_infos() {
-  update_infos();
+    update_infos();
 }
 
 // Refresh all.
 function refresh() {
-  refresh_status();
-  refresh_infos();
+    refresh_status();
+    refresh_infos();
 }
 
 // FIXME: Looks ugly now.
 function account_setting() {
-  var dialog = new BrowserWindow({width: 500, height: 220, resizable: true});
-  dialog.loadUrl('file://' + __dirname + '/account_setting.html');
-  dialog.on('close', function () {
-    config = configure.load();
-    refresh();
-  });
+    var dialog = new BrowserWindow({width: 500, height: 220, resizable: true});
+    dialog.loadUrl('file://' + __dirname + '/account_setting.html');
+    dialog.on('close', function () {
+        config = configure.load();
+        refresh();
+    });
 }
 
 // Prevent multiple instances on Windows.
 var shouldQuit = app.makeSingleInstance(function(commandLine, workingDirectory) {
-  // Someone tried to run a second instance, whatever.
-  return true;
+    // Someone tried to run a second instance, whatever.
+    return true;
 });
 
 if (shouldQuit) {
-  app.quit();
-  return;
+    app.quit();
+    return;
 }
 
 app.on('ready', function() {
-  console.log('App ready.');
+    console.log('App ready.');
 
-  // Set clocks.
-  setInterval(refresh_status, config.status_update_interval_msec);
-  setInterval(refresh_infos, config.info_update_interval_msec);
-  setInterval(auto_update.check_updates, config.auto_update_interval_msec);
+    // Set clocks.
+    setInterval(refresh_status, config.status_update_interval_msec);
+    setInterval(refresh_infos, config.info_update_interval_msec);
+    setInterval(auto_update.check_updates, config.auto_update_interval_msec);
 
-  // Set tray icon.
-  if (process.platform == 'darwin') {
-    app.dock.hide();  // Hide dock icon.
-    appIcon = new Tray(path.join(__dirname, '../resource/tray_icon_Template.png'));
-    appIcon.setPressedImage(path.join(__dirname, '../resource/tray_icon_inversed.png'));
-  } else {
-    appIcon = new Tray(path.join(__dirname, '../resource/tray_icon.png'));
-  }
+    // Set tray icon.
+    if (process.platform == 'darwin') {
+        app.dock.hide();  // Hide dock icon.
+        appIcon = new Tray(path.join(__dirname, '../resource/tray_icon_Template.png'));
+        appIcon.setPressedImage(path.join(__dirname, '../resource/tray_icon_inversed.png'));
+    } else {
+        appIcon = new Tray(path.join(__dirname, '../resource/tray_icon.png'));
+    }
 
-  reset_menu();
+    reset_menu();
 
-  // Set notifications.
-  on_notification_clicked(function () {
-    if (!config.username)  // Must be "Account not set" notification.
-      account_setting();
-  });
+    // Set notifications.
+    on_notification_clicked(function () {
+        if (!config.username)  // Must be "Account not set" notification.
+            account_setting();
+    });
 
-  // Prompt users to set account if they haven't.
-  if (!config.username)
-    notify('未设置帐号', '点击这里设置帐号\n或者稍后' +
-           (process.platform == 'darwin' ? '左' : '右') +
-           '键点击状态栏图标 > 账号设置');
+    // Prompt users to set account if they haven't.
+    if (!config.username)
+        notify('未设置帐号', '点击这里设置帐号\n或者稍后' +
+                (process.platform == 'darwin' ? '左' : '右') +
+                '键点击状态栏图标 > 账号设置');
 
-  refresh();  // First shot.
+    refresh();  // First shot.
 
-  auto_update.check_updates();
+    auto_update.check_updates();
 });
 
 app.on('window-all-closed', function() {});
