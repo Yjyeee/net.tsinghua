@@ -1,12 +1,13 @@
 var fs = require('fs');
 var path = require('path');
-var app = require('app');
+const electron = require('electron');
+const app = electron.app;
+const autoUpdater = electron.autoUpdater;
 
 // init_updater: Return true if need to exist.
 // check_updates: Update if possible.
 
 if (process.platform == 'darwin') {
-  var autoUpdater = require('auto-updater');
 
   exports.init_updater = function () {
     autoUpdater.on('error', function (event, message) {
@@ -26,7 +27,7 @@ if (process.platform == 'darwin') {
       console.log('Update downloaded, quit and update.');
       quitAndUpdate();
     });
-    autoUpdater.setFeedUrl('https://net-tsinghua.herokuapp.com/update/osx/' +
+    autoUpdater.setFeedURL('https://net-tsinghua.herokuapp.com/update/osx/' +
                            app.getVersion());
   };
 

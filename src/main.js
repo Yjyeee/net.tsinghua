@@ -2,11 +2,16 @@
 var path = require('path');
 
 // Electron modules.
-var app = require('app');
-var BrowserWindow = require('browser-window');
-var Menu = require('menu');
-var shell = require('shell');
-var Tray = require('tray');
+// var app = require('app');
+const electron = require('electron');
+const app = electron.app;
+const BrowserWindow = electron.BrowserWindow;
+const Menu = electron.Menu;
+const shell = electron.shell;
+const Tray = electron.Tray;
+// var Menu = require('menu');
+// var shell = require('shell');
+// var Tray = require('tray');
 
 // 3rd party modules.
 var notifier = require('node-notifier');

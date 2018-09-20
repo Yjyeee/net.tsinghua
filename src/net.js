@@ -75,7 +75,7 @@ function srun_login(username, md5_pass, mac, callback) {
             if (err) {
                 console.error('Error while logging in: %s.', err);
                 callback(err);
-            } else if (body.startsWith('login_ok')) {
+            } else if (String(body).startsWith('login_ok')) {
                 console.info('Logged in using %s', username);
                 callback(null);
             } else {

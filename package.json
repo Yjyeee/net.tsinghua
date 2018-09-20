@@ -6,21 +6,23 @@
   "homepage": "https://github.com/ThomasLee969/net.tsinghua",
   "license": "MIT",
   "devDependencies": {
+    "electron": "^3.0.0",
     "fs-extra": "^0.24.0",
-    "grunt": "^0.4.5",
-    "grunt-electron-installer": "^1.0.5",
-    "grunt-shell": "^1.1.2",
     "load-grunt-tasks": "^3.3.0"
   },
   "dependencies": {
-    "auto-launch": "^5.0.1",
+    "auto-launch": "^5.0.5",
+    "auto-updater": "^1.0.2",
     "encoding": "^0.1.11",
+    "grunt": "^1.0.3",
+    "grunt-electron-installer": "^2.1.0",
+    "grunt-shell": "^2.1.0",
     "int64-buffer": "^0.1.9",
     "jsdom": "^6.5.1",
     "md5": "^2.0.0",
-    "node-notifier": "^4.3.1",
+    "node-notifier": "^5.2.1",
     "os": "^0.1.1",
-    "request": "^2.64.0"
+    "request": "^2.88.0"
   },
   "bugs": {
     "url": "https://github.com/ThomasLee969/net.tsinghua/issues",
