@@ -7,8 +7,8 @@
   "license": "MIT",
   "devDependencies": {
     "electron": "^3.0.0",
-    "fs-extra": "^0.24.0",
-    "load-grunt-tasks": "^3.3.0"
+    "fs-extra": "^7.0.0",
+    "load-grunt-tasks": "^4.0.0"
   },
   "dependencies": {
     "auto-launch": "^5.0.5",
@@ -18,7 +18,7 @@
     "grunt-electron-installer": "^2.1.0",
     "grunt-shell": "^2.1.0",
     "int64-buffer": "^0.1.9",
-    "jsdom": "^6.5.1",
+    "jsdom": "^12.0.0",
     "md5": "^2.0.0",
     "node-notifier": "^5.2.1",
     "os": "^0.1.1",
